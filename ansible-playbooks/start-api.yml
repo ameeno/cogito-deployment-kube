@@ -1,5 +1,6 @@
 - hosts: master
   become: yes
+  become_user: ubuntu
   tasks:
     - name: check kube
       apt:
@@ -7,7 +8,12 @@
         state: present
         force: yes
 
+    - name: Download yml config
+      get_url:
+        url: https://raw.githubusercontent.com/ameeno/cogito-deployment-kube/master/kube.yaml
+        dest: /home/ubuntu/kube.yml
+
     - name: pull from git
       k8s:
         state: present
-        src: https://raw.githubusercontent.com/ameeno/cogito-deployment-kube/master/kube.yaml
+        src: /home/ubuntu/kube.yml
