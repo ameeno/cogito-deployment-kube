@@ -1,4 +1,5 @@
 ### FILES TO IGNORE
 
-create-ec2/*key.yml
+Kubernetes/create-ec2/*key.yml
 keys/id_rsa
+docker-playbook-keys.yml

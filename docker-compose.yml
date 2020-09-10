@@ -1,0 +1,58 @@
+version: "3"
+services:
+  postgres-db:
+    container_name: postgres-db
+    image: postgres
+    hostname: postgres-db
+    environment:
+      GET_HOST_FROM: dns
+      POSTGRES_DB: cogito-db
+      POSTGRES_PASSWORD: p455w0rd!
+      POSTGRES_USER: admin
+    ports:
+      - 5432:5432
+    networks:
+      - cogito-network
+
+  nodejs-api:
+    container_name: nodejs-api
+    image: ameeno/cogito-api:latest
+    hostname: nodejs-api
+    environment:
+      GET_HOSTS_FROM: dns
+      PORT: 8181
+      DB: cogito-db
+      DBUSER: admin
+      DBPASS: p455w0rd!
+      DBHOST: postgres-db
+      DBPORT: 5432
+    networks:
+      - cogito-network
+    ports:
+      - 8181:8181
+    depends_on:
+      - postgres-db
+    links:
+      - postgres-db
+
+  nodejs-web:
+    container_name: nodejs-web
+    image: ameeno/cogito-web:latest
+    hostname: nodejs-web
+    user: node
+    environment:
+      GET_HOSTS_FROM: dns
+      API_HOST: http://nodejs-api:8181
+      PORT: 3000
+    networks:
+      - cogito-network
+    ports:
+      - 80:3000
+    depends_on:
+      - nodejs-api
+    links:
+      - nodejs-api
+
+networks:
+  cogito-network:
+    driver: bridge

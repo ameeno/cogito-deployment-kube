@@ -1,0 +1,71 @@
+---
+- hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Create the EC2 Instance
+      ec2:
+        image: ami-04137ed1a354f54c4
+        region: eu-west-1
+        group: Ansible # your group
+        key_name: # your key name
+        vpc_subnet_id: # your subnet
+        instance_type: t2.mirco
+        assign_public_ip: yes
+        aws_access_key: # your key
+        aws_secret_key: # your sec key
+        wait: yes
+        wait_timeout: 600
+        instance_tags:
+          Name: "My-EC2-Instance"
+      register: ec2
+
+    - name: Create SSH Group to login dynamically to EC2 Instance
+      add_host:
+        hostname: "{{ item.public_ip }}"
+        groupname: ec2_server
+      with_items: ec2.instances
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22
+        state: started
+      with_items: ec2.instances
+
+- hosts: ec2_server
+  become: yes
+  # Use ec2_user if you are using CentOS/Amazon server
+  remote_user: ubuntu # for Ubuntu server
+  gather_facts: yes
+  tasks:
+    - name: install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: true
+
+    - name: just force systemd to reread configs
+      systemd:
+        daemon_reload: yes
+
+    - name: restart Docker
+      systemd:
+        name: docker
+        state: restarted
+
+    - name: enable service docker and ensure it is not masked
+      systemd:
+        name: docker
+        enabled: yes
+        masked: no
+
+    - name: Download file from a file path
+      get_url:
+        url: https://raw.githubusercontent.com/ameeno/cogito-deployment-kube/master/docker-compose.yml
+        dest: /home/ubuntu/docker-compose.yml
+    - name: Run `docker-compose up` again
+      docker_compose:
+        project_src: /home/ubuntu
+        build: yes
+      register: output

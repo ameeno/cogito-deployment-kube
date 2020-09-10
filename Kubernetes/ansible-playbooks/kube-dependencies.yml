@@ -65,6 +65,12 @@
       shell: |
         swapoff -a
 
+    - name: enable service httpd and ensure it is not masked
+      systemd:
+        name: docker
+        enabled: yes
+        masked: no
+
     - name: Disable SWAP in fstab since Kubernetes can't work with swap enabled (2/2)
       replace:
         path: /etc/fstab

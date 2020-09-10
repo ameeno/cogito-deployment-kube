@@ -1,0 +1,14 @@
+- hosts: master
+  become: yes
+  become_user: ubuntu
+  tasks:
+    - name: check kube
+      apt:
+        name: kubectl
+        state: present
+        force: yes
+
+    - name: install k8s cluster from github
+      become: yes
+      become_user: ubuntu
+      shell: kubectl create -f https://raw.githubusercontent.com/ameeno/cogito-deployment-kube/master/kube.yaml

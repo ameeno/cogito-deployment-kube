@@ -18,12 +18,14 @@
         state: directory
         mode: 0755
 
-    - name: copy admin.conf to user's kube config
-      copy:
-        src: /etc/kubernetes/admin.conf
-        dest: /home/ubuntu/.kube/config
-        remote_src: yes
-        owner: ubuntu
+    - name: copy admin.conf to user's kube config (1/2)
+      shell: sudo cp /etc/kubernetes/admin.conf /home/ubuntu/.kube/config
+
+    - name: Change kubeconfig file permission
+      file:
+        path: $HOME/.kube/config
+        owner: "{{ ansible_effective_user_id }}"
+        group: "{{ ansible_effective_group_id }}"
 
     - name: install Pod network
       become: yes
