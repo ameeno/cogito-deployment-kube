@@ -1,0 +1,220 @@
+#kubectl create -f nodejs-service.yaml,nodejs-deployment.yaml,env-configmap.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,secret.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.cogito.service: nodejs-web
+  name: nodejs-web
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "82"
+      port: 82
+      targetPort: 3000
+  selector:
+    io.cogito.service: nodejs-web
+status:
+  loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.cogito.service: nodejs-web
+  name: nodejs-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.cogito.service: nodejs-web
+  template:
+    metadata:
+      labels:
+        io.cogito.network/cogito-network: "true"
+        io.cogito.service: nodejs-web
+    spec:
+      containers:
+        - env:
+            - name: API_HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: API_HOST
+                  name: cogito-env
+            - name: PORT
+              value: "3000"
+          image: ameeno/cogito-web:latest
+          name: nodejs-web
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.cogito.service: nodejs-api
+  name: nodejs-api
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "8181"
+      port: 8181
+      targetPort: 3001
+  selector:
+    io.cogito.service: nodejs-api
+status:
+  loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.cogito.service: nodejs-api
+  name: nodejs-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.cogito.service: nodejs-api
+  template:
+    metadata:
+      labels:
+        io.cogito.network/cogito-network: "true"
+        io.cogito.service: nodejs-api
+    spec:
+      containers:
+        - env:
+            - name: DB
+              valueFrom:
+                configMapKeyRef:
+                  key: DBNAME
+                  name: cogito-env
+            - name: DBHOST
+              value: postgres-db
+            - name: PORT
+              value: "3001"
+            - name: DBPASS
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-db-secret
+                  key: DBPASS
+            - name: DBPORT
+              valueFrom:
+                configMapKeyRef:
+                  key: DBPORT
+                  name: cogito-env
+            - name: DBUSER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-db-secret
+                  key: DBUSER
+          image: ameeno/cogito-api:latest
+          name: nodejs-api
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+      restartPolicy: Always
+
+---
+apiVersion: v1
+data:
+  DBNAME: cogito-db
+  DBPORT: "5432"
+  API_HOST: "http://nodejs-api:8181"
+  ## set other cluster hostname/IP
+kind: ConfigMap
+metadata:
+  labels:
+    io.cogito.service: nodejs-env
+  name: cogito-env
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.cogito.service: postgres-db
+  name: postgres-db
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "5432"
+      port: 5432
+      targetPort: 5432
+  selector:
+    io.cogito.service: postgres-db
+status:
+  loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.cogito.service: postgres-db
+  name: postgres-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.cogito.service: postgres-db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.cogito.network/cogito-network: "true"
+        io.cogito.service: postgres-db
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  key: DBNAME
+                  name: cogito-env
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-db-secret
+                  key: DBPASS
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-db-secret
+                  key: DBUSER
+          image: postgres
+          name: postgres-db
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-db-secret
+data:
+  DBUSER: YWRtaW4=
+  DBPASS: cDQ1NXcwcmQh
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cogito-network
+spec:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              io.cogito.network/cogito-network: "true"
+  podSelector:
+    matchLabels:
+      io.cogito.network/cogito-network: "true"
+
+      ## FULL APP WITH API
