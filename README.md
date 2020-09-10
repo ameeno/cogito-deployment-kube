@@ -1,16 +1,13 @@
-Congratulations on progressing to this part of the DevOps screening process.
+# Instructions
 
-This test will evaluate skills via a take-home project. You will find the project requirements in this directory. Please treat this project as if you are delivering it to a client.
+1. create your add the keypairs in ./keys folder or replace with your preferred ssh keys.
+2. create 3 ubuntu instances with the keypair having root access (and ssh configured)
+3. ensure firewall port 80 and port 8181 is open (depends on your cloud provider)
+4. put the ip of your three nodes into the ./hosts file.
+5. run chmod+x deploy-ansible.sh && ./deploy-ansible.sh in this directory.
+6. .... ansible will build you a k8s cluster and deploy your code
+7. profit!!
 
-The requirements for the test project are:
+PS i will put an example of a cloud generated set of instances & firewall openings.
 
-- You want to design a continuous delivery architecture for a scalable and secure 3 tier Node application, the source code for the applications can be found in ./src.
-
-- Both web and API tiers should be exposed to the internet and DB tier should not be accessible from the internet. 
-
-* You need to create resources for all the tiers - use Postgres as your database layer.
-* The architecture should be completely provisioned via some infrastructure as a code tool.
-* The deployment of new code should be completely automated, each tier should be capable of being updated independently of others.
-* You should keep use the ./src directory as a base for your solution, it can be copied to any subdirectory you wish
-* You should be able to deploy it on one larger Cloud provider: AWS / Google Cloud / Azure / DigitalOcean / RackSpace.
-* All the relevant configuration scripts (eg. Terraform/Chef/Puppet/cfengine/ansible/cloud formation)
+pps. code can be updated by building and pushing to dockerhub for the api/web portion. postgres is just a community image, and there is no persistent storage!
