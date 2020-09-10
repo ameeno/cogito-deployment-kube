@@ -10,8 +10,8 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-    - name: "82"
-      port: 82
+    - name: "80"
+      port: 80
       targetPort: 3000
   selector:
     io.cogito.service: nodejs-web
