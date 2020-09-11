@@ -29,7 +29,6 @@ spec:
   selector:
     matchLabels:
       io.skootride.service: nodejs
-  strategy: {}
   template:
     metadata:
       labels:
@@ -46,7 +45,7 @@ spec:
             - name: MONGO_HOSTNAME
               value: db
             - name: PORT
-              value: 3000
+              value: "3000"
             - name: MONGO2_HOSTNAME
               valueFrom:
                 configMapKeyRef:
@@ -72,47 +71,20 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
-          resources: {}
-      initContainers:
-        - name: init-db
-          image: busybox
-          command:
-            [
-              "sh",
-              "-c",
-              "until nc -z db:27017; do echo waiting for db; sleep 2; done;",
-            ]
       restartPolicy: Always
-      serviceAccountName: ""
-status: {}
 
 ---
 apiVersion: v1
 data:
   MONGO_DB: simpleapp
   MONGO_PORT: "27017"
-  MONGO2_HOSTNAME: 172.26.96.153
+  MONGO2_HOSTNAME: <OTHER_HOST_IP>
   ## set other cluster hostname/IP
 kind: ConfigMap
 metadata:
   labels:
     io.skootride.service: nodejs-env
   name: env
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  labels:
-    io.skootride.service: dbdata
-  name: dbdata
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 100Mi
-status: {}
 
 ---
 apiVersion: v1
@@ -166,18 +138,7 @@ spec:
                   key: MONGO_USERNAME
           image: mongo:4.1.8-xenial
           name: db
-          resources: {}
-          volumeMounts:
-            - mountPath: /data/db
-              name: dbdata
       restartPolicy: Always
-      serviceAccountName: ""
-      volumes:
-        - name: dbdata
-          persistentVolumeClaim:
-            claimName: dbdata
-status: {}
-
 ---
 apiVersion: v1
 kind: Secret
