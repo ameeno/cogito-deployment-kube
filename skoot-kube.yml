@@ -1,0 +1,205 @@
+#kubectl create -f nodejs-service.yaml,nodejs-deployment.yaml,env-configmap.yaml,db-service.yaml,db-deployment.yaml,dbdata-persistentvolumeclaim.yaml,secret.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.skootride.service: nodejs
+  name: nodejs
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "80"
+      port: 80
+      targetPort: 3000
+  selector:
+    io.skootride.service: nodejs
+status:
+  loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.skootride.service: nodejs
+  name: nodejs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.skootride.service: nodejs
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        io.skootride.network/app-network: "true"
+        io.skootride.service: nodejs
+    spec:
+      containers:
+        - env:
+            - name: MONGO_DB
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_DB
+                  name: env
+            - name: MONGO_HOSTNAME
+              value: db
+            - name: PORT
+              value: 3000
+            - name: MONGO2_HOSTNAME
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO2_HOSTNAME
+                  name: env
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_PASSWORD
+            - name: MONGO_PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: MONGO_PORT
+                  name: env
+            - name: MONGO_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_USERNAME
+          image: ameeno/node-kubernetes:latest
+          name: nodejs
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          resources: {}
+      initContainers:
+        - name: init-db
+          image: busybox
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z db:27017; do echo waiting for db; sleep 2; done;",
+            ]
+      restartPolicy: Always
+      serviceAccountName: ""
+status: {}
+
+---
+apiVersion: v1
+data:
+  MONGO_DB: simpleapp
+  MONGO_PORT: "27017"
+  MONGO2_HOSTNAME: 172.26.96.153
+  ## set other cluster hostname/IP
+kind: ConfigMap
+metadata:
+  labels:
+    io.skootride.service: nodejs-env
+  name: env
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    io.skootride.service: dbdata
+  name: dbdata
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.skootride.service: db
+  name: db
+spec:
+  type: LoadBalancer
+  ports:
+    - name: "27017"
+      port: 27017
+      targetPort: 27017
+  selector:
+    io.skootride.service: db
+status:
+  loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.skootride.service: db
+  name: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.skootride.service: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.skootride.network/app-network: "true"
+        io.skootride.service: db
+    spec:
+      containers:
+        - env:
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_PASSWORD
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_USERNAME
+          image: mongo:4.1.8-xenial
+          name: db
+          resources: {}
+          volumeMounts:
+            - mountPath: /data/db
+              name: dbdata
+      restartPolicy: Always
+      serviceAccountName: ""
+      volumes:
+        - name: dbdata
+          persistentVolumeClaim:
+            claimName: dbdata
+status: {}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongo-secret
+data:
+  MONGO_USERNAME: YWRtaW4=
+  MONGO_PASSWORD: cDQ1NXcwcmQh
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app-network
+spec:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              io.skootride.network/app-network: "true"
+  podSelector:
+    matchLabels:
+      io.skootride.network/app-network: "true"
+
+      ## FULL APP WITH API
